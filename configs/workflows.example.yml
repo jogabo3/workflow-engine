@@ -1,0 +1,38 @@
+# configs/workflows.example.yml
+
+workflows:
+  - name: project_alpha
+    source:
+      type: local
+      location: examples/project_alpha
+
+    adapter: command
+
+    steps:
+      - name: validate
+        command: python validate.py
+
+      - name: execute
+        command: python run.py
+
+    execution:
+      continue_on_failure: true
+      retries: 1
+      timeout_seconds: 300
+
+  - name: project_beta
+    source:
+      type: git
+      location: https://example.com/project-beta.git
+      branch: main
+
+    adapter: command
+
+    steps:
+      - name: execute
+        command: python main.py
+
+    execution:
+      continue_on_failure: true
+      retries: 0
+      timeout_seconds: 600
