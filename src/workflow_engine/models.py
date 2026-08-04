@@ -81,3 +81,31 @@ class WorkflowManifest(BaseModel):
             raise ValueError("Workflow names must be unique.")
 
         return self
+
+from datetime import datetime
+
+
+class ExecutionStatus(StrEnum):
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    TIMED_OUT = "timed_out"
+
+
+class StepExecutionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow_name: str
+    step_name: str
+    command: str
+    status: ExecutionStatus
+    exit_code: int | None
+    stdout: str
+    stderr: str
+    attempts: int = Field(ge=1)
+    started_at: datetime
+    finished_at: datetime
+    duration_seconds: float = Field(ge=0)
+
+    @property
+    def succeeded(self) -> bool:
+        return self.status == ExecutionStatus.SUCCEEDED
