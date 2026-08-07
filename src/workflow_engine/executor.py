@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from workflow_engine.models import (
@@ -38,7 +38,7 @@ class CommandExecutor:
         last_exit_code: int | None = None
         last_status = ExecutionStatus.FAILED
 
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         timer_start = time.perf_counter()
 
         for attempt in range(1, maximum_attempts + 1):
@@ -72,7 +72,7 @@ class CommandExecutor:
             if attempt < maximum_attempts:
                 continue
 
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(UTC)
         duration_seconds = time.perf_counter() - timer_start
 
         return StepExecutionResult(

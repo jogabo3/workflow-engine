@@ -25,7 +25,7 @@ class WorkflowSource(BaseModel):
     branch: str | None = None
 
     @model_validator(mode="after")
-    def validate_branch(self) -> "WorkflowSource":
+    def validate_branch(self) -> WorkflowSource:
         if self.type == SourceType.LOCAL and self.branch is not None:
             raise ValueError("A local workflow source cannot define a Git branch.")
 
@@ -57,7 +57,7 @@ class WorkflowConfig(BaseModel):
     execution: ExecutionPolicy = Field(default_factory=ExecutionPolicy)
 
     @model_validator(mode="after")
-    def validate_unique_step_names(self) -> "WorkflowConfig":
+    def validate_unique_step_names(self) -> WorkflowConfig:
         step_names = [step.name for step in self.steps]
 
         if len(step_names) != len(set(step_names)):
@@ -74,7 +74,7 @@ class WorkflowManifest(BaseModel):
     workflows: list[WorkflowConfig] = Field(min_length=1)
 
     @model_validator(mode="after")
-    def validate_unique_workflow_names(self) -> "WorkflowManifest":
+    def validate_unique_workflow_names(self) -> WorkflowManifest:
         workflow_names = [workflow.name for workflow in self.workflows]
 
         if len(workflow_names) != len(set(workflow_names)):
