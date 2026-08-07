@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -33,7 +33,7 @@ class WorkspaceManager:
         self.base_dir = Path(base_dir).resolve()
 
     def create_run_id(self) -> str:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         unique_suffix = uuid4().hex[:8]
         return f"{timestamp}-{unique_suffix}"
 
