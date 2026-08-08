@@ -109,3 +109,60 @@ class StepExecutionResult(BaseModel):
     @property
     def succeeded(self) -> bool:
         return self.status == ExecutionStatus.SUCCEEDED
+
+
+
+class ExecutionStatus(StrEnum):
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    TIMED_OUT = "timed_out"
+
+
+class StepExecutionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow_name: str
+    step_name: str
+    command: str
+    status: ExecutionStatus
+    exit_code: int | None
+    stdout: str
+    stderr: str
+    attempts: int = Field(ge=1)
+    started_at: datetime
+    finished_at: datetime
+    duration_seconds: float = Field(ge=0)
+
+    @property
+    def succeeded(self) -> bool:
+        return self.status == ExecutionStatus.SUCCEEDED
+
+class WorkflowExecutionStatus(StrEnum):
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    PARTIALLY_SUCCEEDED = "partially_succeeded"
+    SKIPPED = "skipped"
+
+
+class WorkflowExecutionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow_name: str
+    status: WorkflowExecutionStatus
+    steps: list[StepExecutionResult]
+
+    @property
+    def succeeded(self) -> bool:
+        return self.status == WorkflowExecutionStatus.SUCCEEDED
+
+
+class RunExecutionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    workflows: list[WorkflowExecutionResult]
+
+    @property
+    def succeeded(self) -> bool:
+        return all(workflow.succeeded for workflow in self.workflows)
+
