@@ -303,3 +303,71 @@ Path("continued.txt").write_text(
     )
 
     assert continued_file.exists()
+
+def test_middle_workflow_failure_does_not_block_following_workflow(
+    tmp_path: Path,
+) -> None:
+    alpha_source = create_project(
+        tmp_path,
+        "alpha_source",
+        'print("alpha complete")',
+    )
+
+    beta_source = create_project(
+        tmp_path,
+        "beta_source",
+        "raise SystemExit(1)",
+    )
+
+    gamma_source = create_project(
+        tmp_path,
+        "gamma_source",
+        """
+from pathlib import Path
+
+Path("gamma_completed.txt").write_text(
+    "success",
+    encoding="utf-8",
+)
+""".strip(),
+    )
+
+    manifest = WorkflowManifest(
+        workflows=[
+            build_workflow(
+                name="alpha",
+                source=alpha_source,
+            ),
+            build_workflow(
+                name="beta",
+                source=beta_source,
+            ),
+            build_workflow(
+                name="gamma",
+                source=gamma_source,
+            ),
+        ]
+    )
+
+    runner = WorkflowRunner(
+        workspace_manager=WorkspaceManager(tmp_path / "runs")
+    )
+
+    result = runner.run(
+        manifest,
+        run_id="three-project-test",
+    )
+
+    assert result.workflows[0].status == WorkflowExecutionStatus.SUCCEEDED
+    assert result.workflows[1].status == WorkflowExecutionStatus.FAILED
+    assert result.workflows[2].status == WorkflowExecutionStatus.SUCCEEDED
+
+    gamma_output = (
+        tmp_path
+        / "runs"
+        / "three-project-test"
+        / "gamma"
+        / "gamma_completed.txt"
+    )
+
+    assert gamma_output.exists()
