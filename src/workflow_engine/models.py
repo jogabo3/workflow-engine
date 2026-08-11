@@ -139,3 +139,12 @@ class RunExecutionResult(BaseModel):
     def succeeded(self) -> bool:
         return all(workflow.succeeded for workflow in self.workflows)
 
+class WorkflowState(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow_name: str
+    last_run_id: str | None = None
+    last_status: WorkflowExecutionStatus | None = None
+    last_successful_step: str | None = None
+    last_error: str | None = None
+    updated_at: datetime | None = None
