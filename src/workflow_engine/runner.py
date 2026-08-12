@@ -8,21 +8,25 @@ from workflow_engine.models import (
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
     WorkflowManifest,
+    WorkflowState,
 )
+from workflow_engine.state import JsonStateStore
 from workflow_engine.workspace import WorkspaceManager
 
 
 class WorkflowRunner:
-    """Coordinates workspace preparation and workflow execution."""
+    """Coordinates workspace preparation, execution, and workflow state."""
 
     def __init__(
         self,
         *,
         workspace_manager: WorkspaceManager | None = None,
         executor: CommandExecutor | None = None,
+        state_store: JsonStateStore | None = None,
     ) -> None:
         self.workspace_manager = workspace_manager or WorkspaceManager()
         self.executor = executor or CommandExecutor()
+        self.state_store = state_store or JsonStateStore()
 
     def run(
         self,
@@ -43,6 +47,12 @@ class WorkflowRunner:
             )
 
             workflow_results.append(result)
+
+            self._persist_workflow_state(
+                workflow=workflow,
+                result=result,
+                run_id=effective_run_id,
+            )
 
         return RunExecutionResult(
             run_id=effective_run_id,
@@ -91,6 +101,50 @@ class WorkflowRunner:
             status=workflow_status,
             steps=step_results,
         )
+
+    def _persist_workflow_state(
+        self,
+        *,
+        workflow: WorkflowConfig,
+        result: WorkflowExecutionResult,
+        run_id: str,
+    ) -> None:
+        successful_steps = [
+            step
+            for step in result.steps
+            if step.status == ExecutionStatus.SUCCEEDED
+        ]
+
+        last_successful_step = (
+            successful_steps[-1].step_name
+            if successful_steps
+            else None
+        )
+
+        failed_steps = [
+            step
+            for step in result.steps
+            if step.status != ExecutionStatus.SUCCEEDED
+        ]
+
+        last_error = None
+
+        if failed_steps:
+            failed_step = failed_steps[-1]
+            last_error = (
+                failed_step.stderr.strip()
+                or f"Step '{failed_step.step_name}' failed"
+            )
+
+        state = WorkflowState(
+            workflow_name=workflow.name,
+            last_run_id=run_id,
+            last_status=result.status,
+            last_successful_step=last_successful_step,
+            last_error=last_error,
+        )
+
+        self.state_store.save(state)
 
     @staticmethod
     def _determine_workflow_status(
