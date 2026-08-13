@@ -45,6 +45,7 @@ class ExecutionPolicy(BaseModel):
     continue_on_failure: bool = True
     retries: int = Field(default=0, ge=0, le=10)
     timeout_seconds: int = Field(default=900, gt=0)
+    resume_from_checkpoint: bool = False
 
 
 class WorkflowConfig(BaseModel):

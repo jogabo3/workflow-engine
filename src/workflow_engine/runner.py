@@ -34,9 +34,7 @@ class WorkflowRunner:
         *,
         run_id: str | None = None,
     ) -> RunExecutionResult:
-        effective_run_id = (
-            run_id or self.workspace_manager.create_run_id()
-        )
+        effective_run_id = run_id or self.workspace_manager.create_run_id()
 
         workflow_results: list[WorkflowExecutionResult] = []
 
@@ -70,9 +68,25 @@ class WorkflowRunner:
             run_id=run_id,
         )
 
+        previous_state = self.state_store.get(workflow.name)
+
+        start_index = 0
+
+        if (
+            workflow.execution.resume_from_checkpoint
+            and previous_state.last_status == WorkflowExecutionStatus.FAILED
+            and previous_state.last_successful_step is not None
+        ):
+            step_names = [step.name for step in workflow.steps]
+
+            if previous_state.last_successful_step in step_names:
+                start_index = (
+                    step_names.index(previous_state.last_successful_step) + 1
+                )
+
         step_results = []
 
-        for step in workflow.steps:
+        for step in workflow.steps[start_index:]:
             result = self.executor.run_step(
                 workflow,
                 step,
@@ -94,6 +108,17 @@ class WorkflowRunner:
                 result.status == ExecutionStatus.SUCCEEDED
                 for result in step_results
             ),
+            previously_completed_steps=start_index,
+        )
+
+        workflow_status = self._determine_workflow_status(
+            workflow,
+            completed_steps=len(step_results),
+            successful_steps=sum(
+                result.status == ExecutionStatus.SUCCEEDED
+                for result in step_results
+            ),
+            previously_completed_steps=start_index,
         )
 
         return WorkflowExecutionResult(
@@ -149,19 +174,41 @@ class WorkflowRunner:
     @staticmethod
     def _determine_workflow_status(
         workflow: WorkflowConfig,
-        *,
-        completed_steps: int,
-        successful_steps: int,
-    ) -> WorkflowExecutionStatus:
-        total_steps = len(workflow.steps)
-
-        if successful_steps == total_steps:
-            return WorkflowExecutionStatus.SUCCEEDED
-
-        if successful_steps == 0:
-            return WorkflowExecutionStatus.FAILED
-
-        if completed_steps < total_steps:
-            return WorkflowExecutionStatus.FAILED
-
-        return WorkflowExecutionStatus.PARTIALLY_SUCCEEDED
+            *,
+            completed_steps: int,
+            successful_steps: int,
+            previously_completed_steps: int = 0,
+        ) -> WorkflowExecutionStatus:
+            total_steps = len(workflow.steps)
+        
+            total_successful_steps = (
+                previously_completed_steps + successful_steps
+            )
+        
+            total_completed_steps = (
+                previously_completed_steps + completed_steps
+            )
+        
+            failed_steps = completed_steps - successful_steps
+        
+            # Every configured step has succeeded,
+            # including any previously checkpointed steps.
+            if total_successful_steps == total_steps:
+                return WorkflowExecutionStatus.SUCCEEDED
+        
+            # A failure occurred and this workflow is configured
+            # to stop on failure.
+            if failed_steps > 0 and not workflow.execution.continue_on_failure:
+                return WorkflowExecutionStatus.FAILED
+        
+            # Nothing has succeeded.
+            if total_successful_steps == 0:
+                return WorkflowExecutionStatus.FAILED
+        
+            # Execution stopped before all steps were attempted.
+            if total_completed_steps < total_steps:
+                return WorkflowExecutionStatus.FAILED
+        
+            # All steps were attempted, but at least one failed
+            # while continue_on_failure allowed the workflow to proceed.
+            return WorkflowExecutionStatus.PARTIALLY_SUCCEEDED

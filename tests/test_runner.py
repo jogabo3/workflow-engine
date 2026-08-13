@@ -408,3 +408,91 @@ def test_successful_workflow_persists_state(
     assert state.last_successful_step == "run"
     assert state.last_error is None
 
+def test_resume_starts_after_last_successful_step(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+
+    (source / "step_one.py").write_text(
+        """
+from pathlib import Path
+
+counter = Path("step_one_count.txt")
+count = int(counter.read_text()) + 1 if counter.exists() else 1
+counter.write_text(str(count))
+""".strip(),
+        encoding="utf-8",
+    )
+
+    (source / "step_two.py").write_text(
+        """
+from pathlib import Path
+
+marker = Path("allow_success.txt")
+
+if not marker.exists():
+    raise SystemExit(1)
+
+Path("step_two_complete.txt").write_text(
+    "done",
+    encoding="utf-8",
+)
+""".strip(),
+        encoding="utf-8",
+    )
+
+    workflow = WorkflowConfig(
+        name="resume_test",
+        source=WorkflowSource(
+            type=SourceType.LOCAL,
+            location=str(source),
+        ),
+        adapter=AdapterType.COMMAND,
+        steps=[
+            WorkflowStep(
+                name="step_one",
+                command="python step_one.py",
+            ),
+            WorkflowStep(
+                name="step_two",
+                command="python step_two.py",
+            ),
+        ],
+        execution=ExecutionPolicy(
+            continue_on_failure=False,
+            retries=0,
+            timeout_seconds=10,
+            resume_from_checkpoint=True,
+        ),
+    )
+
+    state_store = JsonStateStore(tmp_path / "state")
+    workspace_manager = WorkspaceManager(tmp_path / "runs")
+
+    runner = WorkflowRunner(
+        workspace_manager=workspace_manager,
+        state_store=state_store,
+    )
+
+    first_result = runner.run(
+        WorkflowManifest(workflows=[workflow]),
+        run_id="first-run",
+    )
+
+    assert first_result.workflows[0].status == WorkflowExecutionStatus.FAILED
+
+    state = state_store.get("resume_test")
+    assert state.last_successful_step == "step_one"
+
+    (source / "allow_success.txt").write_text(
+        "yes",
+        encoding="utf-8",
+    )
+
+    second_result = runner.run(
+        WorkflowManifest(workflows=[workflow]),
+        run_id="second-run",
+    )
+
+    assert second_result.workflows[0].status == WorkflowExecutionStatus.SUCCEEDED
+
+
