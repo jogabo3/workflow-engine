@@ -371,3 +371,40 @@ Path("gamma_completed.txt").write_text(
     )
 
     assert gamma_output.exists()
+
+from workflow_engine.state import JsonStateStore
+
+
+def test_successful_workflow_persists_state(
+    tmp_path: Path,
+) -> None:
+    source = create_project(
+        tmp_path,
+        "source",
+        'print("complete")',
+    )
+
+    workflow = build_workflow(
+        name="alpha",
+        source=source,
+    )
+
+    state_store = JsonStateStore(tmp_path / "state")
+
+    runner = WorkflowRunner(
+        workspace_manager=WorkspaceManager(tmp_path / "runs"),
+        state_store=state_store,
+    )
+
+    runner.run(
+        WorkflowManifest(workflows=[workflow]),
+        run_id="state-test",
+    )
+
+    state = state_store.get("alpha")
+
+    assert state.last_run_id == "state-test"
+    assert state.last_status == WorkflowExecutionStatus.SUCCEEDED
+    assert state.last_successful_step == "run"
+    assert state.last_error is None
+
