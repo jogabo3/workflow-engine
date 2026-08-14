@@ -46,6 +46,39 @@ Authentication for private repositories should be provided through the host
 environment, such as an existing Git credential helper or CI/CD identity.
 Credentials should not be embedded in workflow manifests.
 
+
+### Current Scope
+
+Workflow state and run reports are currently persisted to the local filesystem.
+The architecture keeps these responsibilities separate so alternative backends
+can be introduced later.
+
+The engine currently targets single-host workflow execution rather than
+distributed scheduling.
+
+## Engineering Motivation
+
+This project grew from a production orchestration problem involving multiple
+independent data projects.
+
+An early implementation allowed project configuration files to share execution
+space. Because projects used identically named configuration files, processing
+one project could overwrite configuration belonging to another. A failure in
+one project could also prevent unrelated downstream projects from executing.
+
+Rather than patching those behaviors individually, this project explores the
+underlying platform requirements:
+
+- isolate execution environments
+- contain failures
+- make retry behavior explicit
+- persist execution state
+- support safe recovery
+- expose enough operational information to diagnose failures
+
+The result is a general workflow engine rather than a solution tied to one
+specific data tool.
+
 ## Architecture
 
 ```text
