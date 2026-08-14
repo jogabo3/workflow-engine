@@ -129,17 +129,6 @@ class WorkflowExecutionResult(BaseModel):
     def succeeded(self) -> bool:
         return self.status == WorkflowExecutionStatus.SUCCEEDED
 
-
-class RunExecutionResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    run_id: str
-    workflows: list[WorkflowExecutionResult]
-
-    @property
-    def succeeded(self) -> bool:
-        return all(workflow.succeeded for workflow in self.workflows)
-
 class WorkflowState(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -149,3 +138,39 @@ class WorkflowState(BaseModel):
     last_successful_step: str | None = None
     last_error: str | None = None
     updated_at: datetime | None = None
+
+
+
+class RunExecutionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    workflows: list[WorkflowExecutionResult]
+    started_at: datetime
+    finished_at: datetime
+    duration_seconds: float = Field(ge=0)
+
+    @property
+    def succeeded(self) -> bool:
+        return all(workflow.succeeded for workflow in self.workflows)
+
+    @property
+    def succeeded_count(self) -> int:
+        return sum(
+            workflow.status == WorkflowExecutionStatus.SUCCEEDED
+            for workflow in self.workflows
+        )
+
+    @property
+    def failed_count(self) -> int:
+        return sum(
+            workflow.status == WorkflowExecutionStatus.FAILED
+            for workflow in self.workflows
+        )
+
+    @property
+    def partial_count(self) -> int:
+        return sum(
+            workflow.status == WorkflowExecutionStatus.PARTIALLY_SUCCEEDED
+            for workflow in self.workflows
+        )
