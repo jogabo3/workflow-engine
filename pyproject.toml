@@ -36,3 +36,5 @@ line-length = 100
 python_version = "3.11"
 strict = true
 
+[project.scripts]
+workflow-engine = "workflow_engine.cli:main"
