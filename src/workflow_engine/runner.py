@@ -15,6 +15,7 @@ from workflow_engine.models import (
 )
 from workflow_engine.state import JsonStateStore
 from workflow_engine.workspace import WorkspaceManager
+from workflow_engine.reporting import JsonRunReporter
 
 
 class WorkflowRunner:
@@ -26,10 +27,12 @@ class WorkflowRunner:
         workspace_manager: WorkspaceManager | None = None,
         executor: CommandExecutor | None = None,
         state_store: JsonStateStore | None = None,
+        reporter: JsonRunReporter | None = None,
     ) -> None:
         self.workspace_manager = workspace_manager or WorkspaceManager()
         self.executor = executor or CommandExecutor()
         self.state_store = state_store or JsonStateStore()
+        self.reporter = reporter or JsonRunReporter()
 
     def run(
         self,
@@ -60,13 +63,17 @@ class WorkflowRunner:
 
         finished_at = datetime.now(UTC)
 
-        return RunExecutionResult(
+        run_result = RunExecutionResult(
             run_id=effective_run_id,
             workflows=workflow_results,
             started_at=started_at,
             finished_at=finished_at,
             duration_seconds=time.perf_counter() - timer_start,
         )
+
+        self.reporter.write(run_result)
+
+        return run_result
 
     def _run_workflow(
         self,

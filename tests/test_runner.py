@@ -495,4 +495,76 @@ Path("step_two_complete.txt").write_text(
 
     assert second_result.workflows[0].status == WorkflowExecutionStatus.SUCCEEDED
 
+from workflow_engine.reporting import JsonRunReporter
+
+
+def test_runner_writes_run_report(tmp_path: Path) -> None:
+    source = create_project(
+        tmp_path,
+        "source",
+        'print("complete")',
+    )
+
+    workflow = build_workflow(
+        name="alpha",
+        source=source,
+    )
+
+    reporter = JsonRunReporter(tmp_path / "reports")
+
+    runner = WorkflowRunner(
+        workspace_manager=WorkspaceManager(tmp_path / "runs"),
+        state_store=JsonStateStore(tmp_path / "state"),
+        reporter=reporter,
+    )
+
+    runner.run(
+        WorkflowManifest(workflows=[workflow]),
+        run_id="report-test",
+    )
+
+    report_path = (
+        tmp_path
+        / "reports"
+        / "report-test"
+        / "summary.json"
+    )
+
+    assert report_path.exists()
+
+def test_runner_reports_failed_workflow(tmp_path: Path) -> None:
+    source = create_project(
+        tmp_path,
+        "source",
+        "raise SystemExit(1)",
+    )
+
+    workflow = build_workflow(
+        name="alpha",
+        source=source,
+    )
+
+    reporter = JsonRunReporter(tmp_path / "reports")
+
+    runner = WorkflowRunner(
+        workspace_manager=WorkspaceManager(tmp_path / "runs"),
+        state_store=JsonStateStore(tmp_path / "state"),
+        reporter=reporter,
+    )
+
+    result = runner.run(
+        WorkflowManifest(workflows=[workflow]),
+        run_id="failed-report-test",
+    )
+
+    report_path = (
+        tmp_path
+        / "reports"
+        / "failed-report-test"
+        / "summary.json"
+    )
+
+    assert report_path.exists()
+    assert result.succeeded is False    
+
 
