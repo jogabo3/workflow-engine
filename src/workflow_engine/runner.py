@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from datetime import UTC, datetime
+
 from workflow_engine.executor import CommandExecutor
 from workflow_engine.models import (
     ExecutionStatus,
@@ -34,6 +37,9 @@ class WorkflowRunner:
         *,
         run_id: str | None = None,
     ) -> RunExecutionResult:
+        started_at = datetime.now(UTC)
+        timer_start = time.perf_counter()
+
         effective_run_id = run_id or self.workspace_manager.create_run_id()
 
         workflow_results: list[WorkflowExecutionResult] = []
@@ -52,9 +58,14 @@ class WorkflowRunner:
                 run_id=effective_run_id,
             )
 
+        finished_at = datetime.now(UTC)
+
         return RunExecutionResult(
             run_id=effective_run_id,
             workflows=workflow_results,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_seconds=time.perf_counter() - timer_start,
         )
 
     def _run_workflow(
