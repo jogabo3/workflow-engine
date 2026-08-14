@@ -7,30 +7,28 @@ workflows:
     adapter: command
 
     steps:
-      - name: validate
-        command: python validate.py
-
       - name: execute
         command: python run.py
 
     execution:
-      continue_on_failure: true
+      continue_on_failure: false
       retries: 1
-      timeout_seconds: 300
+      timeout_seconds: 30
+      resume_from_checkpoint: false
 
   - name: project_beta
     source:
       type: local
       location: examples/project_beta
-      # The 'branch: main' line was removed from here
 
     adapter: command
 
     steps:
       - name: execute
-        command: python main.py
+        command: python run.py
 
     execution:
-      continue_on_failure: true
+      continue_on_failure: false
       retries: 0
-      timeout_seconds: 600
+      timeout_seconds: 30
+      resume_from_checkpoint: false
