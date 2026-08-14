@@ -38,6 +38,14 @@ orchestration system rather than relying on a large orchestration framework.
 - automated testing with pytest
 - static analysis with Ruff and mypy
 
+### Git Authentication
+
+Workflow Engine does not manage Git credentials.
+
+Authentication for private repositories should be provided through the host
+environment, such as an existing Git credential helper or CI/CD identity.
+Credentials should not be embedded in workflow manifests.
+
 ## Architecture
 
 ```text
