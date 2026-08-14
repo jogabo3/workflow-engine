@@ -1,5 +1,3 @@
-# configs/workflows.example.yml
-
 workflows:
   - name: project_alpha
     source:
@@ -22,9 +20,9 @@ workflows:
 
   - name: project_beta
     source:
-      type: git
-      location: https://example.com/project-beta.git
-      branch: main
+      type: local
+      location: examples/project_beta
+      # The 'branch: main' line was removed from here
 
     adapter: command
 
