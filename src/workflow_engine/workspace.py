@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -65,9 +66,10 @@ class WorkspaceManager:
                 destination=project_dir,
             )
         elif workflow.source.type == SourceType.GIT:
-            raise WorkspaceError(
-                "Git sources are not supported yet. "
-                "Git cloning will be added in a later step."
+            self._clone_git_source(
+                repository=workflow.source.location,
+                destination=project_dir,
+                branch=workflow.source.branch,
             )
         else:
             raise WorkspaceError(
@@ -125,3 +127,56 @@ class WorkspaceManager:
                 f"{resolved_path}"
             ) from exc
 
+    def _clone_git_source(
+        self,
+        *,
+        repository: str,
+        destination: Path,
+        branch: str | None,
+    ) -> None:
+        command = [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+        ]
+
+        if branch is not None:
+            command.extend(
+                [
+                    "--branch",
+                    branch,
+                ]
+            )
+
+        command.extend(
+            [
+                repository,
+                str(destination),
+            ]
+        )
+
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise WorkspaceError(
+                "Git executable was not found. "
+                "Install Git and ensure it is available on PATH."
+            ) from exc
+
+        if completed.returncode != 0:
+            error_message = (
+                completed.stderr.strip()
+                or completed.stdout.strip()
+                or "unknown Git error"
+            )
+
+            raise WorkspaceError(
+                f"Unable to clone repository "
+                f"'{repository}': {error_message}"
+            )

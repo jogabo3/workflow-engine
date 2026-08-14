@@ -4,6 +4,7 @@
 from pathlib import Path
 
 import pytest
+import subprocess
 
 from workflow_engine.models import (
     AdapterType,
@@ -164,3 +165,191 @@ def test_cleanup_removes_entire_run(tmp_path: Path) -> None:
     manager.cleanup_run("test-run")
 
     assert not prepared.run_root.exists()
+
+def create_git_repository(
+    root: Path,
+    repository_name: str,
+) -> Path:
+    repository = root / repository_name
+    repository.mkdir()
+
+    subprocess.run(
+        ["git", "init"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    subprocess.run(
+        ["git", "config", "user.name", "Workflow Engine Tests"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    (repository / "run.py").write_text(
+        'print("git workflow")',
+        encoding="utf-8",
+    )
+
+    subprocess.run(
+        ["git", "add", "."],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            "initial commit",
+        ],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    return repository
+
+def build_git_workflow(
+    name: str,
+    repository: Path,
+    branch: str | None = None,
+) -> WorkflowConfig:
+    return WorkflowConfig(
+        name=name,
+        source=WorkflowSource(
+            type=SourceType.GIT,
+            location=str(repository),
+            branch=branch,
+        ),
+        adapter=AdapterType.COMMAND,
+        steps=[
+            WorkflowStep(
+                name="run",
+                command="python run.py",
+            )
+        ],
+    )
+
+def test_prepares_workspace_from_git_repository(
+    tmp_path: Path,
+) -> None:
+    repository = create_git_repository(
+        tmp_path,
+        "source_repo",
+    )
+
+    manager = WorkspaceManager(tmp_path / "runs")
+
+    workflow = build_git_workflow(
+        "git_project",
+        repository,
+    )
+
+    prepared = manager.prepare(
+        workflow,
+        run_id="git-test",
+    )
+
+    cloned_script = prepared.project_dir / "run.py"
+
+    assert cloned_script.exists()
+    assert (
+        cloned_script.read_text(encoding="utf-8")
+        == 'print("git workflow")'
+    )
+
+def test_clones_requested_git_branch(
+    tmp_path: Path,
+) -> None:
+    repository = create_git_repository(
+        tmp_path,
+        "source_repo",
+    )
+
+    subprocess.run(
+        ["git", "switch", "-c", "feature"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    (repository / "run.py").write_text(
+        'print("feature branch")',
+        encoding="utf-8",
+    )
+
+    subprocess.run(
+        ["git", "add", "."],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            "feature branch",
+        ],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    manager = WorkspaceManager(tmp_path / "runs")
+
+    workflow = build_git_workflow(
+        "git_project",
+        repository,
+        branch="feature",
+    )
+
+    prepared = manager.prepare(
+        workflow,
+        run_id="branch-test",
+    )
+
+    assert (
+        prepared.project_dir / "run.py"
+    ).read_text(
+        encoding="utf-8",
+    ) == 'print("feature branch")'
+
+def test_invalid_git_repository_raises_clear_error(
+    tmp_path: Path,
+) -> None:
+    manager = WorkspaceManager(tmp_path / "runs")
+
+    workflow = build_git_workflow(
+        "bad_repo",
+        tmp_path / "missing_repo",
+    )
+
+    with pytest.raises(
+        WorkspaceError,
+        match="Unable to clone repository",
+    ):
+        manager.prepare(
+            workflow,
+            run_id="bad-git-test",
+        )
