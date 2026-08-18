@@ -13,9 +13,9 @@ from workflow_engine.models import (
     WorkflowManifest,
     WorkflowState,
 )
+from workflow_engine.reporting import JsonRunReporter
 from workflow_engine.state import JsonStateStore
 from workflow_engine.workspace import WorkspaceManager
-from workflow_engine.reporting import JsonRunReporter
 
 
 class WorkflowRunner:
