@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from workflow_engine.config import ConfigurationError, load_manifest
 from workflow_engine.runner import WorkflowRunner

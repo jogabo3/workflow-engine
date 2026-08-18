@@ -1,10 +1,10 @@
 
 # tests/test_workspace.py
 
+import subprocess
 from pathlib import Path
 
 import pytest
-import subprocess
 
 from workflow_engine.models import (
     AdapterType,

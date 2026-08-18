@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from workflow_engine.cli import build_parser
-from workflow_engine.cli import main
-
+from workflow_engine.cli import build_parser, main
 
 
 def test_run_command_parses_manifest() -> None:
