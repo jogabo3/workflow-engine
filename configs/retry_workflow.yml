@@ -1,0 +1,17 @@
+workflows:
+  - name: retry_demo
+    source:
+      type: local
+      location: examples/retry_demo
+
+    adapter: command
+
+    steps:
+      - name: retry_step
+        command: python run.py
+
+    execution:
+      continue_on_failure: false
+      retries: 1
+      timeout_seconds: 30
+      resume_from_checkpoint: false

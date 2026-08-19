@@ -1,0 +1,17 @@
+workflows:
+  - name: sample_demo
+    source:
+      type: local
+      location: examples/sample_demo
+
+    adapter: command
+
+    steps:
+      - name: run_demo
+        command: python run.py
+
+    execution:
+      continue_on_failure: false
+      retries: 1
+      timeout_seconds: 30
+      resume_from_checkpoint: false
